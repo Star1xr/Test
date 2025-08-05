@@ -53,15 +53,6 @@ local Button = TabRLGL:CreateButton({
    end,
 })
 
-local Toggle = TabMisc:CreateToggle({
-   Name = "Noclip",
-   CurrentValue = false,
-   Flag = "Toggle",
-   Callback = function(Value)
-      getgenv().noclipEnabled = Value
-   end,
-})
-
 local Slider = TabMisc:CreateSlider({
    Name = "Walkspeed",
    Range = {10, 150},
@@ -152,7 +143,6 @@ end)
 local direction = Vector3.zero
 local isMobile = UIS.TouchEnabled and not UIS.KeyboardEnabled
 
--- PC inputs
 UIS.InputBegan:Connect(function(input, gpe)
 	if gpe or isMobile then return end
 	if input.KeyCode == Enum.KeyCode.W then direction += Vector3.new(0, 0, -1) end
@@ -173,30 +163,28 @@ UIS.InputEnded:Connect(function(input, gpe)
 	if input.KeyCode == Enum.KeyCode.LeftControl then direction -= Vector3.new(0, -1, 0) end
 end)
 
--- Mobil joystick 
-local mobileJoyDirection = Vector3.zero
+getgenv().flyEnabled = false
+
+TabMisc:CreateToggle({
+	Name = "Fly",
+	CurrentValue = false,
+	Flag = "FlyToggle",
+	Callback = function(Value)
+		getgenv().flyEnabled = Value
+	end,
+})
 
 RunService.RenderStepped:Connect(function()
 	if getgenv().flyEnabled and hrp and humanoid then
-		humanoid:ChangeState(11)
-
+		humanoid:ChangeState(Enum.HumanoidStateType.Physics)
 		local camCF = workspace.CurrentCamera.CFrame
-		local moveDir
-
-		if isMobile then
-			-- Joystick hareket etmiyorsa uçma
-			if mobileJoyDirection.Magnitude > 0 then
-				-- Joystick yönünü kameraya göre dönüştür
-				moveDir = camCF:VectorToWorldSpace(mobileJoyDirection.Unit)
-			else
-				moveDir = Vector3.zero
-			end
-		else
-			moveDir = camCF:VectorToWorldSpace(direction.Magnitude > 0 and direction.Unit or Vector3.zero)
+		local moveVec = camCF:VectorToWorldSpace(direction.Magnitude > 0 and direction.Unit or Vector3.zero)
+		hrp.Velocity = moveVec * 50
+		humanoid.PlatformStand = true
+	else
+		if humanoid:GetState() == Enum.HumanoidStateType.Physics then
+			humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+			humanoid.PlatformStand = false
 		end
-
-		hrp.Velocity = moveDir * 50
-	elseif humanoid and humanoid:GetState() == 11 then
-		humanoid:ChangeState(8)
 	end
 end)
