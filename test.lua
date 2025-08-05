@@ -157,35 +157,46 @@ end)
 
 
 -- fly (its here to keep the noclip and walkspeed safe🥀)
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local UIS = game:GetService("UserInputService")
+-- ✅ Hizmetler
+local Players     = game:GetService("Players")
+local RunService  = game:GetService("RunService")
+local UIS         = game:GetService("UserInputService")
+local player      = Players.LocalPlayer
+local camera      = workspace.CurrentCamera
 
-local player = Players.LocalPlayer
+-- 🧠 Global değişkenler
 local character, humanoid, hrp
 local dir = Vector3.zero
 local isMobile = UIS.TouchEnabled and not UIS.KeyboardEnabled
 
 getgenv().flyEnabled = false
 
--- Güncel referansları al
+-- 🔁 Referans güncelleme
 local function updateRefs()
 	character = player.Character
 	if not character then return end
 	humanoid = character:FindFirstChildOfClass("Humanoid")
-	hrp = character:FindFirstChild("HumanoidRootPart")
+	hrp      = character:FindFirstChild("HumanoidRootPart")
 end
 
--- İlk başta al
-updateRefs()
+-- 🧹 Temizlik: karakteri stabilize et (yuvarlanmayı engelle)
+local function cleanUpCharacter()
+	if humanoid then
+		humanoid.AutoRotate = false
+	end
+	if hrp then
+		hrp.RotVelocity = Vector3.zero
+	end
+end
 
--- Karakter tekrar spawn olursa güncelle
+-- 🧬 Karakter spawn olunca referansları güncelle
 player.CharacterAdded:Connect(function()
 	wait(0.5)
 	updateRefs()
+	cleanUpCharacter()
 end)
 
--- PC input yakalama
+-- 🎮 PC yön kontrolleri
 UIS.InputBegan:Connect(function(input, g)
 	if g or isMobile then return end
 	if input.KeyCode == Enum.KeyCode.W then dir += Vector3.new(0, 0, -1) end
@@ -206,51 +217,63 @@ UIS.InputEnded:Connect(function(input, g)
 	if input.KeyCode == Enum.KeyCode.LeftControl then dir -= Vector3.new(0, -1, 0) end
 end)
 
--- Rayfield Toggle
+-- 🔘 Rayfield Fly Toggle
 TabMisc:CreateToggle({
 	Name = "Fly",
 	CurrentValue = false,
 	Flag = "FlyToggle",
 	Callback = function(v)
 		getgenv().flyEnabled = v
+		if not character or not humanoid then updateRefs() end
+
 		if not v and humanoid then
 			humanoid.PlatformStand = false
-			if hrp then hrp.Velocity = Vector3.zero end
+			humanoid.AutoRotate = true
+			if hrp then
+				hrp.Velocity = Vector3.zero
+				hrp.RotVelocity = Vector3.zero
+			end
 			humanoid:ChangeState(Enum.HumanoidStateType.Running)
+
+			-- 🔓 Kamera serbest bırakılır
+			camera.CameraType = Enum.CameraType.Custom
+
 			dir = Vector3.zero
+		else
+			cleanUpCharacter()
+
+			-- 🔒 Kamera karaktere kilitlenir
+			camera.CameraSubject = humanoid
+			camera.CameraType = Enum.CameraType.Track
 		end
 	end,
 })
 
--- Fly Loop (Ana kontrol)
+-- 🚀 Fly motoru - RenderStepped loop
 RunService.RenderStepped:Connect(function()
 	if not getgenv().flyEnabled then return end
 	if not character or not humanoid or not hrp then updateRefs() return end
 
-	local inputVec
-	if isMobile then
-		inputVec = humanoid.MoveDirection
-	else
-		inputVec = dir
-	end
+	local inputVec = isMobile and humanoid.MoveDirection or dir
 
 	if inputVec.Magnitude > 0 then
-		-- Normalize input
 		local moveUnit = inputVec.Unit
-		local cam = workspace.CurrentCamera
-		local worldVec = cam.CFrame:VectorToWorldSpace(moveUnit)
+		local worldVec = isMobile and moveUnit or workspace.CurrentCamera.CFrame:VectorToWorldSpace(moveUnit)
 
-		-- Apply
 		humanoid:ChangeState(Enum.HumanoidStateType.Physics)
 		humanoid.PlatformStand = true
+		humanoid.AutoRotate = false
+
 		hrp.Velocity = worldVec * 60
+		hrp.RotVelocity = Vector3.zero
 	else
 		humanoid.PlatformStand = true
 		hrp.Velocity = Vector3.zero
+		hrp.RotVelocity = Vector3.zero
 	end
 end)
 
--- Yedek kontrol loop
+-- 🧠 Physics state yedeği
 RunService.Heartbeat:Connect(function()
 	if not getgenv().flyEnabled then return end
 	if not humanoid or not hrp then updateRefs() return end
@@ -260,13 +283,13 @@ RunService.Heartbeat:Connect(function()
 	end
 end)
 
--- 3 saniyede bir yedek ref kontrol
+-- 🔄 Belirli aralıklarla referans güncelle
 do
-	local counter = 0
+	local t = 0
 	RunService.Heartbeat:Connect(function(dt)
-		counter += dt
-		if counter >= 3 then
-			counter = 0
+		t += dt
+		if t >= 3 then
+			t = 0
 			updateRefs()
 		end
 	end)
