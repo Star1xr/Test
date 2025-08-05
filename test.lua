@@ -129,7 +129,7 @@ local SliderWalkspeed = TabMisc:CreateSlider({
 	Range = {16, 150},
 	Increment = 1,
 	Suffix = "Speed",
-	CurrentValue = 30,
+	CurrentValue = 22, -- is default i guess (i will check later)
 	Flag = "WalkSpeedSlider",
 	Callback = function(Value)
 		desiredSpeed = Value
@@ -150,6 +150,12 @@ end)
 
 
 
+
+
+
+
+
+
 -- fly (its here to keep the noclip and walkspeed safe🥀)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -161,37 +167,20 @@ local humanoid = character:WaitForChild("Humanoid")
 local hrp = character:WaitForChild("HumanoidRootPart")
 local camera = workspace.CurrentCamera
 
--- Mobile joystick input vector
-local joystickInput = Vector3.new(0, 0, 0)
+-- Track movement direction
+local direction = Vector3.zero
 local isMobile = UIS.TouchEnabled and not UIS.KeyboardEnabled
+local joystickInput = Vector3.zero
 
--- Update references on character respawn
+-- Update on character respawn
 player.CharacterAdded:Connect(function(char)
 	character = char
 	humanoid = char:WaitForChild("Humanoid")
 	hrp = char:WaitForChild("HumanoidRootPart")
 	camera = workspace.CurrentCamera
-	wait(1)
-	setNoclip(getgenv().noclipEnabled)
 end)
 
--- Function to toggle noclip on/off
-local function setNoclip(state)
-	if not character then return end
-	for _, part in pairs(character:GetDescendants()) do
-		if part:IsA("BasePart") then
-			part.CanCollide = not state
-		end
-	end
-	if humanoid then
-		humanoid.PlatformStand = false
-		humanoid.JumpPower = 50
-	end
-end
-
--- Track keyboard input for direction (PC)
-local direction = Vector3.new(0, 0, 0)
-
+-- Desktop controls (WASD + Space + Ctrl)
 UIS.InputBegan:Connect(function(input, gpe)
 	if gpe or isMobile then return end
 	if input.KeyCode == Enum.KeyCode.W then direction += Vector3.new(0, 0, -1) end
@@ -212,70 +201,43 @@ UIS.InputEnded:Connect(function(input, gpe)
 	if input.KeyCode == Enum.KeyCode.LeftControl then direction -= Vector3.new(0, -1, 0) end
 end)
 
--- Update joystick input for mobile (placeholder)
+-- Placeholder for mobile joystick input (customize if needed)
 local function updateJoystickInput()
-	-- TODO: Replace with your joystick values from Rayfield UI
-	joystickInput = Vector3.new(0, 0, 0) -- im bored bro nahh
+	joystickInput = Vector3.new(0, 0, 0)
 end
 
-getgenv().noclipEnabled = false
 getgenv().flyEnabled = false
 
--- Toggle for noclip
-local ToggleNoclip = TabMisc:CreateToggle({
-	Name = "Noclip",
-	CurrentValue = false,
-	Flag = "NoclipToggle",
-	Callback = function(Value)
-		getgenv().noclipEnabled = Value
-		setNoclip(Value)
-	end,
-})
-
--- Toggle for fly
+-- Toggle as always shi
 local ToggleFly = TabMisc:CreateToggle({
 	Name = "Fly",
 	CurrentValue = false,
 	Flag = "FlyToggle",
 	Callback = function(Value)
 		getgenv().flyEnabled = Value
-		-- Automatically enable noclip while flying
-		if Value then
-			getgenv().noclipEnabled = true
-			setNoclip(true)
-		else
-			getgenv().noclipEnabled = false
-			setNoclip(false)
-		end
 	end,
 })
 
--- Fly update loop, runs every frame
+-- 🛫 Pure Fly Motor
 RunService.RenderStepped:Connect(function()
 	if getgenv().flyEnabled and humanoid and hrp then
-		if isMobile then
-			updateJoystickInput()
-		else
-			joystickInput = Vector3.new(0, 0, 0)
-		end
+		if isMobile then updateJoystickInput() else joystickInput = Vector3.zero end
 
-		local inputDirection = direction + joystickInput
-
-		if inputDirection.Magnitude > 0 then
+		local inputDir = direction + joystickInput
+		if inputDir.Magnitude > 0 then
 			humanoid:ChangeState(Enum.HumanoidStateType.Physics)
-			local camCF = camera.CFrame
-			local moveVec = camCF:VectorToWorldSpace(inputDirection.Unit)
+			local moveVec = camera.CFrame:VectorToWorldSpace(inputDir.Unit)
 			hrp.Velocity = moveVec * 50
 			humanoid.PlatformStand = true
 		else
 			if humanoid:GetState() == Enum.HumanoidStateType.Physics then
 				humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
 				humanoid.PlatformStand = false
-				hrp.Velocity = Vector3.new(0, 0, 0)
+				hrp.Velocity = Vector3.zero
 			end
 		end
 	else
-		if humanoid:GetState() == Enum.HumanoidStateType.Physics then
+		if humanoid and humanoid:GetState() == Enum.HumanoidStateType.Physics then
 			humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
 			humanoid.PlatformStand = false
 		end
