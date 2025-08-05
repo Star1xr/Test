@@ -40,7 +40,7 @@ local Window = Rayfield:CreateWindow({
 local TabTele = Window:CreateTab("Teleport", 4483362458) -- Title, Image
 
 local Button = TabTele:CreateButton({
-   Name = "Test Bro Click This Shit",
+   Name = "Test Bro Click This Shit(Teleport RLGL)",
    Callback = function()
       Rayfield:Notify({
          Title = "Is that working",
@@ -48,5 +48,6 @@ local Button = TabTele:CreateButton({
          Duration = 6.5,
          Image = 4483362458,
       })
+      game.Players.LocalPlayer.Character:MoveTo(Vector3.new(114, 1023, 129))
    end,
 })
