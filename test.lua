@@ -156,30 +156,26 @@ end)
 
 
 
--- fly (its here to keep the noclip and walkspeed safe🥀)
--- ✅ Hizmetler
-local Players     = game:GetService("Players")
-local RunService  = game:GetService("RunService")
-local UIS         = game:GetService("UserInputService")
-local player      = Players.LocalPlayer
-local camera      = workspace.CurrentCamera
+-- fly (its here to keep the noclip and walkspeed safe
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
 
--- 🧠 Global değişkenler
-local character, humanoid, hrp
+local character, humanoid, hrp, bv
 local dir = Vector3.zero
 local isMobile = UIS.TouchEnabled and not UIS.KeyboardEnabled
 
 getgenv().flyEnabled = false
 
--- 🔁 Referans güncelleme
 local function updateRefs()
 	character = player.Character
 	if not character then return end
 	humanoid = character:FindFirstChildOfClass("Humanoid")
-	hrp      = character:FindFirstChild("HumanoidRootPart")
+	hrp = character:FindFirstChild("HumanoidRootPart")
 end
 
--- 🧹 Temizlik: karakteri stabilize et (yuvarlanmayı engelle)
 local function cleanUpCharacter()
 	if humanoid then
 		humanoid.AutoRotate = false
@@ -189,14 +185,12 @@ local function cleanUpCharacter()
 	end
 end
 
--- 🧬 Karakter spawn olunca referansları güncelle
 player.CharacterAdded:Connect(function()
 	wait(0.5)
 	updateRefs()
 	cleanUpCharacter()
 end)
 
--- 🎮 PC yön kontrolleri
 UIS.InputBegan:Connect(function(input, g)
 	if g or isMobile then return end
 	if input.KeyCode == Enum.KeyCode.W then dir += Vector3.new(0, 0, -1) end
@@ -217,7 +211,7 @@ UIS.InputEnded:Connect(function(input, g)
 	if input.KeyCode == Enum.KeyCode.LeftControl then dir -= Vector3.new(0, -1, 0) end
 end)
 
--- 🔘 Rayfield Fly Toggle
+-- 🔘 Fly Toggle
 TabMisc:CreateToggle({
 	Name = "Fly",
 	CurrentValue = false,
@@ -226,30 +220,38 @@ TabMisc:CreateToggle({
 		getgenv().flyEnabled = v
 		if not character or not humanoid then updateRefs() end
 
-		if not v and humanoid then
-			humanoid.PlatformStand = false
-			humanoid.AutoRotate = true
+		if v then
+			cleanUpCharacter()
+
+			camera.CameraSubject = humanoid
+			camera.CameraType = Enum.CameraType.Track
+
+			-- 🌀 BodyVelocity ekle
+			if hrp and not bv then
+				bv = Instance.new("BodyVelocity")
+				bv.Name = "FlyForce"
+				bv.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+				bv.P = 12500
+				bv.Velocity = Vector3.zero
+				bv.Parent = hrp
+			end
+		else
+			if bv then
+				bv:Destroy()
+				bv = nil
+			end
 			if hrp then
 				hrp.Velocity = Vector3.zero
 				hrp.RotVelocity = Vector3.zero
 			end
-			humanoid:ChangeState(Enum.HumanoidStateType.Running)
-
-			-- 🔓 Kamera serbest bırakılır
+			humanoid.AutoRotate = true
 			camera.CameraType = Enum.CameraType.Custom
-
 			dir = Vector3.zero
-		else
-			cleanUpCharacter()
-
-			-- 🔒 Kamera karaktere kilitlenir
-			camera.CameraSubject = humanoid
-			camera.CameraType = Enum.CameraType.Track
 		end
 	end,
 })
 
--- 🚀 Fly motoru - RenderStepped loop
+-- 🚀 Uçuş Motoru
 RunService.RenderStepped:Connect(function()
 	if not getgenv().flyEnabled then return end
 	if not character or not humanoid or not hrp then updateRefs() return end
@@ -257,40 +259,15 @@ RunService.RenderStepped:Connect(function()
 	local inputVec = isMobile and humanoid.MoveDirection or dir
 
 	if inputVec.Magnitude > 0 then
-		local moveUnit = inputVec.Unit
-		local worldVec = isMobile and moveUnit or workspace.CurrentCamera.CFrame:VectorToWorldSpace(moveUnit)
+		local unitVec = inputVec.Unit
+		local moveVec = isMobile and unitVec or camera.CFrame:VectorToWorldSpace(unitVec)
 
-		humanoid:ChangeState(Enum.HumanoidStateType.Physics)
-		humanoid.PlatformStand = true
-		humanoid.AutoRotate = false
-
-		hrp.Velocity = worldVec * 60
-		hrp.RotVelocity = Vector3.zero
-	else
-		humanoid.PlatformStand = true
-		hrp.Velocity = Vector3.zero
-		hrp.RotVelocity = Vector3.zero
-	end
-end)
-
--- 🧠 Physics state yedeği
-RunService.Heartbeat:Connect(function()
-	if not getgenv().flyEnabled then return end
-	if not humanoid or not hrp then updateRefs() return end
-
-	if humanoid:GetState() ~= Enum.HumanoidStateType.Physics then
-		humanoid:ChangeState(Enum.HumanoidStateType.Physics)
-	end
-end)
-
--- 🔄 Belirli aralıklarla referans güncelle
-do
-	local t = 0
-	RunService.Heartbeat:Connect(function(dt)
-		t += dt
-		if t >= 3 then
-			t = 0
-			updateRefs()
+		if bv then
+			bv.Velocity = moveVec * 60
 		end
-	end)
-end
+	else
+		if bv then
+			bv.Velocity = Vector3.zero
+		end
+	end
+end)
