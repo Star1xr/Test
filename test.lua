@@ -53,19 +53,6 @@ local Button = TabRLGL:CreateButton({
    end,
 })
 
-local Slider = TabMisc:CreateSlider({
-   Name = "Walkspeed",
-   Range = {10, 150},
-   Increment = 5,
-   Suffix = "Speed",
-   CurrentValue = 30,
-   Flag = "Slider",
-   Callback = function(Value)
-      desiredSpeed = Value
-      setWalkSpeed(Value)
-   end,
-})
-
 
 
 
@@ -84,7 +71,6 @@ local Slider = TabMisc:CreateSlider({
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local UIS = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
@@ -124,32 +110,7 @@ local function setWalkSpeed(speed)
 	end
 end
 
--- Fly controls
-local direction = Vector3.zero
-local isMobile = UIS.TouchEnabled and not UIS.KeyboardEnabled
-
-UIS.InputBegan:Connect(function(input, gpe)
-	if gpe or isMobile then return end
-	if input.KeyCode == Enum.KeyCode.W then direction += Vector3.new(0, 0, -1) end
-	if input.KeyCode == Enum.KeyCode.S then direction += Vector3.new(0, 0, 1) end
-	if input.KeyCode == Enum.KeyCode.A then direction += Vector3.new(-1, 0, 0) end
-	if input.KeyCode == Enum.KeyCode.D then direction += Vector3.new(1, 0, 0) end
-	if input.KeyCode == Enum.KeyCode.Space then direction += Vector3.new(0, 1, 0) end
-	if input.KeyCode == Enum.KeyCode.LeftControl then direction += Vector3.new(0, -1, 0) end
-end)
-
-UIS.InputEnded:Connect(function(input, gpe)
-	if gpe or isMobile then return end
-	if input.KeyCode == Enum.KeyCode.W then direction -= Vector3.new(0, 0, -1) end
-	if input.KeyCode == Enum.KeyCode.S then direction -= Vector3.new(0, 0, 1) end
-	if input.KeyCode == Enum.KeyCode.A then direction -= Vector3.new(-1, 0, 0) end
-	if input.KeyCode == Enum.KeyCode.D then direction -= Vector3.new(1, 0, 0) end
-	if input.KeyCode == Enum.KeyCode.Space then direction -= Vector3.new(0, 1, 0) end
-	if input.KeyCode == Enum.KeyCode.LeftControl then direction -= Vector3.new(0, -1, 0) end
-end)
-
 getgenv().noclipEnabled = false
-getgenv().flyEnabled = false
 
 -- Toggles
 local ToggleNoclip = TabMisc:CreateToggle({
@@ -159,15 +120,6 @@ local ToggleNoclip = TabMisc:CreateToggle({
 	Callback = function(Value)
 		getgenv().noclipEnabled = Value
 		setNoclip(Value)
-	end,
-})
-
-local ToggleFly = TabMisc:CreateToggle({
-	Name = "Fly",
-	CurrentValue = false,
-	Flag = "FlyToggle",
-	Callback = function(Value)
-		getgenv().flyEnabled = Value
 	end,
 })
 
@@ -185,20 +137,8 @@ local SliderWalkspeed = TabMisc:CreateSlider({
 	end,
 })
 
--- Update everysecond
+-- Update every frame
 RunService.RenderStepped:Connect(function()
-	if getgenv().flyEnabled and humanoid and hrp then
-		humanoid:ChangeState(Enum.HumanoidStateType.Physics)
-		local camCF = workspace.CurrentCamera.CFrame
-		local moveVector = camCF:VectorToWorldSpace(direction.Magnitude > 0 and direction.Unit or Vector3.zero)
-		hrp.Velocity = moveVector * 50
-		humanoid.PlatformStand = true
-	else
-		if humanoid:GetState() == Enum.HumanoidStateType.Physics then
-			humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
-			humanoid.PlatformStand = false
-		end
-	end
 	setWalkSpeed(desiredSpeed)
 	if getgenv().noclipEnabled then
 		setNoclip(true)
