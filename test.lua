@@ -37,17 +37,62 @@ local Window = Rayfield:CreateWindow({
    }
 })
 
-local TabTele = Window:CreateTab("Teleport", 4483362458) -- Title, Image
+local TabRLGL = Window:CreateTab("Greenlight", 4483362458) -- Title, Image
+local TabMisc = Window:CreateTab("Misc", 4483362458) -- Title, Image
 
-local Button = TabTele:CreateButton({
-   Name = "Test Bro Click This Shit(Teleport RLGL)",
+local Button = TabRLGL:CreateButton({
+   Name = "Teleport RLGL",
    Callback = function()
       Rayfield:Notify({
-         Title = "Is that working",
-         Content = "Nigga is working lol",
+         Title = "Teleported to the end",
+         Content = "Teleported...",
          Duration = 6.5,
          Image = 4483362458,
       })
       game.Players.LocalPlayer.Character:MoveTo(Vector3.new(114, 1023, 129))
    end,
 })
+
+local Toggle = TabGame:CreateToggle({
+   Name = "Noclip",
+   CurrentValue = false,
+   Flag = "NoclipToggle",
+   Callback = function(Value)
+      getgenv().noclipEnabled = Value
+   end,
+})
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+-- Noclip motor
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+
+getgenv().noclipEnabled = false
+
+RunService.Stepped:Connect(function()
+	if getgenv().noclipEnabled and humanoidRootPart then
+		for _, v in pairs(character:GetDescendants()) do
+			if v:IsA("BasePart") and v.CanCollide == true then
+				v.CanCollide = false
+			end
+		end
+	end
+end)
+
