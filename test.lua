@@ -95,41 +95,28 @@ local Slider = TabMisc:CreateSlider({
 
 
 
--- Noclip motor
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 
-local player = Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+-- noclip+fly, latest anticheat bypass
 
-getgenv().noclipEnabled = false
-
-RunService.Stepped:Connect(function()
-	if getgenv().noclipEnabled and humanoidRootPart then
-		for _, v in pairs(character:GetDescendants()) do
-			if v:IsA("BasePart") and v.CanCollide == true then
-				v.CanCollide = false
-			end
-		end
-	end
-end)
-
-
--- Fly motor(anticheat bypass last update)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
-local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+local hrp = character:WaitForChild("HumanoidRootPart")
 local humanoid = character:WaitForChild("Humanoid")
+
+player.CharacterAdded:Connect(function(char)
+	character = char
+	hrp = character:WaitForChild("HumanoidRootPart")
+	humanoid = character:WaitForChild("Humanoid")
+end)
 
 local direction = Vector3.zero
 
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-	if gameProcessed then return end
+UserInputService.InputBegan:Connect(function(input, gpe)
+	if gpe then return end
 	if input.KeyCode == Enum.KeyCode.W then direction += Vector3.new(0, 0, -1) end
 	if input.KeyCode == Enum.KeyCode.S then direction += Vector3.new(0, 0, 1) end
 	if input.KeyCode == Enum.KeyCode.A then direction += Vector3.new(-1, 0, 0) end
@@ -138,8 +125,8 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if input.KeyCode == Enum.KeyCode.LeftControl then direction += Vector3.new(0, -1, 0) end
 end)
 
-UserInputService.InputEnded:Connect(function(input, gameProcessed)
-	if gameProcessed then return end
+UserInputService.InputEnded:Connect(function(input, gpe)
+	if gpe then return end
 	if input.KeyCode == Enum.KeyCode.W then direction -= Vector3.new(0, 0, -1) end
 	if input.KeyCode == Enum.KeyCode.S then direction -= Vector3.new(0, 0, 1) end
 	if input.KeyCode == Enum.KeyCode.A then direction -= Vector3.new(-1, 0, 0) end
@@ -149,16 +136,20 @@ UserInputService.InputEnded:Connect(function(input, gameProcessed)
 end)
 
 RunService.RenderStepped:Connect(function()
-	if getgenv().flyEnabled then
-		humanoid.PlatformStand = true
-		if direction.Magnitude > 0 then
-			local camCF = workspace.CurrentCamera.CFrame
-			local moveDir = camCF:VectorToWorldSpace(direction.Unit)
-			humanoidRootPart.Velocity = moveDir * getgenv().flySpeed
-		else
-			humanoidRootPart.Velocity = Vector3.zero
+	if getgenv().flyEnabled and hrp and humanoid then
+		humanoid:ChangeState(11)
+		local camCF = workspace.CurrentCamera.CFrame
+		local moveDir = camCF:VectorToWorldSpace(direction.Unit)
+		hrp.Velocity = moveDir * getgenv().flySpeed
+	elseif humanoid and humanoid:GetState() == 11 then
+		humanoid:ChangeState(8)
+	end
+
+	if getgenv().noclipEnabled and character then
+		for _, part in pairs(character:GetDescendants()) do
+			if part:IsA("BasePart") then
+				part.CanCollide = false
+			end
 		end
-	else
-		humanoid.PlatformStand = false
 	end
 end)
