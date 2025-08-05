@@ -157,132 +157,129 @@ end)
 
 
 -- fly (its here to keep the noclip and walkspeed safe
--- Aynı hizmetleri kullan:
+-- Rayfield uyumlu karakter uçuş sistemi
+-- Kamera yönüne göre tam 3D uçuş, mobil ve PC uyumlu
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local UIS = game:GetService("UserInputService")
+local UserInputService = game:GetService("UserInputService")
+
 local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+local hrp = character:WaitForChild("HumanoidRootPart")
+
+-- Uçuş nesneleri
+local bodyVelocity = nil
+local bodyGyro = nil
+local bodyForce = nil
+local originalAutoRotate = humanoid.AutoRotate
+
+-- Uçuş hızı (istendiği şekilde ayarlanabilir)
+local FLY_SPEED = 50
+
+-- Kamera referansı
 local camera = workspace.CurrentCamera
 
--- Referanslar:
-local character, humanoid, hrp, bv
-local dir = Vector3.zero
-local isMobile = UIS.TouchEnabled and not UIS.KeyboardEnabled
-local FLY_SPEED = 60
+-- Uçuş etkin/kapalı takibi
+local flying = false
 
-getgenv().flyEnabled = false
-
-local function updateRefs()
-	character = player.Character
-	if not character then return end
-	humanoid = character:FindFirstChildOfClass("Humanoid")
-	hrp = character:FindFirstChild("HumanoidRootPart")
-end
-
-local function cleanUpCharacter()
-	if humanoid then
-		humanoid.AutoRotate = false
-		humanoid:ChangeState(Enum.HumanoidStateType.Running)
-	end
-	if hrp then
-		hrp.RotVelocity = Vector3.zero
-	end
-end
-
-player.CharacterAdded:Connect(function()
-	wait(0.5)
-	updateRefs()
-	cleanUpCharacter()
+-- Mobil veya joystick hareketi için tutulan değerler (isteğe bağlı)
+local gamepadAxis = Vector2.new(0, 0)
+UserInputService.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Gamepad1 then
+        if input.KeyCode == Enum.KeyCode.Thumbstick1 then
+            gamepadAxis = Vector2.new(input.Position.X, input.Position.Y)
+        end
+    end
 end)
 
--- PC için yön kontrol
-UIS.InputBegan:Connect(function(input, g)
-	if g or isMobile then return end
-	if input.KeyCode == Enum.KeyCode.W then dir += Vector3.new(0, 0, -1) end
-	if input.KeyCode == Enum.KeyCode.S then dir += Vector3.new(0, 0, 1) end
-	if input.KeyCode == Enum.KeyCode.A then dir += Vector3.new(-1, 0, 0) end
-	if input.KeyCode == Enum.KeyCode.D then dir += Vector3.new(1, 0, 0) end
-	if input.KeyCode == Enum.KeyCode.Space then dir += Vector3.new(0, 1, 0) end
-	if input.KeyCode == Enum.KeyCode.LeftControl then dir += Vector3.new(0, -1, 0) end
-end)
+-- Uçuş döngüsü
+RunService.RenderStepped:Connect(function(dt)
+    -- Uçuş modu etkin değilse gerekli temizleme ve çıkış
+    if not getgenv().flyEnabled then
+        if flying then
+            -- Uçuş kapatılırken nesneleri kaldır, animasyonları ve rotasyonu geri yükle
+            if bodyVelocity then bodyVelocity:Destroy() end
+            if bodyGyro then bodyGyro:Destroy() end
+            if bodyForce then bodyForce:Destroy() end
+            bodyVelocity = nil
+            bodyGyro = nil
+            bodyForce = nil
 
-UIS.InputEnded:Connect(function(input, g)
-	if g or isMobile then return end
-	if input.KeyCode == Enum.KeyCode.W then dir -= Vector3.new(0, 0, -1) end
-	if input.KeyCode == Enum.KeyCode.S then dir -= Vector3.new(0, 0, 1) end
-	if input.KeyCode == Enum.KeyCode.A then dir -= Vector3.new(-1, 0, 0) end
-	if input.KeyCode == Enum.KeyCode.D then dir -= Vector3.new(1, 0, 0) end
-	if input.KeyCode == Enum.KeyCode.Space then dir -= Vector3.new(0, 1, 0) end
-	if input.KeyCode == Enum.KeyCode.LeftControl then dir -= Vector3.new(0, -1, 0) end
-end)
+            humanoid.PlatformStand = false
+            humanoid.AutoRotate = originalAutoRotate
+        end
+        flying = false
+        return
+    end
 
--- Fly Toggle
-TabMisc:CreateToggle({
-	Name = "Fly",
-	CurrentValue = false,
-	Flag = "FlyToggle",
-	Callback = function(v)
-		getgenv().flyEnabled = v
-		if not character or not humanoid then updateRefs() end
+    -- Uçuş modu etkinleştiriliyorsa (ilk seferinde nesneleri oluştur)
+    if not flying then
+        -- Kamera karakteri takip edecek şekilde ayarla
+        camera.CameraSubject = humanoid
+        camera.CameraType = Enum.CameraType.Custom
 
-		if v then
-			cleanUpCharacter()
+        -- Yerçekimini dengelemek için BodyForce ekle
+        bodyForce = Instance.new("BodyForce")
+        bodyForce.Force = Vector3.new(0, workspace.Gravity * hrp:GetMass(), 0)
+        bodyForce.Parent = hrp
 
-			camera.CameraSubject = humanoid
-			camera.CameraType = Enum.CameraType.Track
+        -- Hareket kontrolü için BodyVelocity (yön vektörleri bu nesneyle uygulanacak)
+        bodyVelocity = Instance.new("BodyVelocity")
+        bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+        bodyVelocity.Parent = hrp
 
-			if hrp and not bv then
-				bv = Instance.new("BodyVelocity")
-				bv.Name = "FlyForce"
-				bv.MaxForce = Vector3.new(1e5, 1e5, 1e5)
-				bv.P = 12500
-				bv.Velocity = Vector3.zero
-				bv.Parent = hrp
-			end
+        -- Karakterin rotasyonunu kamera yönüne göre kilitlemek için BodyGyro
+        bodyGyro = Instance.new("BodyGyro")
+        bodyGyro.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+        bodyGyro.D = 1250
+        bodyGyro.P = 3000
+        bodyGyro.CFrame = hrp.CFrame
+        bodyGyro.Parent = hrp
 
-			humanoid.PlatformStand = false
-			humanoid:ChangeState(Enum.HumanoidStateType.Running)
-		else
-			if bv then
-				bv:Destroy()
-				bv = nil
-			end
-			if hrp then
-				hrp.Velocity = Vector3.zero
-				hrp.RotVelocity = Vector3.zero
-			end
-			humanoid.AutoRotate = true
-			camera.CameraType = Enum.CameraType.Custom
-			dir = Vector3.zero
-		end
-	end,
-})
+        -- Animasyonları korumak için PlatformStand kapat ve AutoRotate devre dışı bırak
+        humanoid.PlatformStand = false
+        originalAutoRotate = humanoid.AutoRotate
+        humanoid.AutoRotate = false
 
--- Uçuş Motoru
-RunService.RenderStepped:Connect(function()
-	if not getgenv().flyEnabled then return end
-	if not character or not humanoid or not hrp then updateRefs() return end
+        flying = true
+    end
 
-	local inputVec = isMobile and humanoid.MoveDirection or dir
+    -- Hareket girişini oku (kameraya göre yön tayini)
+    local forward = 0
+    local right = 0
+    if UserInputService:IsKeyDown(Enum.KeyCode.W) or UserInputService:IsKeyDown(Enum.KeyCode.Up) then
+        forward = forward + 1
+    end
+    if UserInputService:IsKeyDown(Enum.KeyCode.S) or UserInputService:IsKeyDown(Enum.KeyCode.Down) then
+        forward = forward - 1
+    end
+    if UserInputService:IsKeyDown(Enum.KeyCode.A) or UserInputService:IsKeyDown(Enum.KeyCode.Left) then
+        right = right - 1
+    end
+    if UserInputService:IsKeyDown(Enum.KeyCode.D) or UserInputService:IsKeyDown(Enum.KeyCode.Right) then
+        right = right + 1
+    end
+    -- Gamepad sol joystick: X = sağ-sol, Y = ileri-geri
+    forward = forward + gamepadAxis.Y
+    right = right + gamepadAxis.X
 
-	if inputVec.Magnitude > 0 then
-		local moveVec = (isMobile and inputVec or camera.CFrame:VectorToWorldSpace(inputVec)).Unit
-		if bv then
-			bv.Velocity = moveVec * FLY_SPEED
-		end
+    local camCFrame = camera.CFrame
+    local moveVector = Vector3.new(0, 0, 0)
+    if forward ~= 0 or right ~= 0 then
+        local lookVec = camCFrame.LookVector
+        local rightVec = camCFrame.RightVector
+        -- Yön vektörü
+        moveVector = (lookVec * forward + rightVec * right).Unit * FLY_SPEED
+    end
 
-		humanoid:ChangeState(Enum.HumanoidStateType.Running)
-	else
-		if bv then
-			bv.Velocity = Vector3.zero
-		end
+    -- Yatay rotasyonu karakterle hizala (BodyGyro)
+    local horizontalLook = Vector3.new(camCFrame.LookVector.X, 0, camCFrame.LookVector.Z)
+    if horizontalLook.Magnitude > 0 then
+        bodyGyro.CFrame = CFrame.new(hrp.Position, hrp.Position + horizontalLook)
+    end
 
-		-- Animasyon devam etsin diye:
-		humanoid:ChangeState(Enum.HumanoidStateType.Running)
-	end
-
-	-- Yuvarlanma engelle
-	if hrp then
-		hrp.RotVelocity = Vector3.zero
-	end
+    -- Uçuş hızı ataması (BodyVelocity ile)
+    bodyVelocity.Velocity = Vector3.new(moveVector.X, moveVector.Y, moveVector.Z)
 end)
