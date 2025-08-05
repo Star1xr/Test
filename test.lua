@@ -56,7 +56,7 @@ local Button = TabRLGL:CreateButton({
 local Toggle = TabMisc:CreateToggle({
    Name = "Noclip",
    CurrentValue = false,
-   Flag = "NoclipToggle",
+   Flag = "Toggle",
    Callback = function(Value)
       getgenv().noclipEnabled = Value
    end,
@@ -72,14 +72,14 @@ local Toggle2 = TabMisc:CreateToggle({
 })
 
 local Slider = TabMisc:CreateSlider({
-   Name = "Fly Speed",
+   Name = "Walkspeed",
    Range = {10, 150},
    Increment = 5,
    Suffix = "Speed",
    CurrentValue = 30,
-   Flag = "FlySpeed",
+   Flag = "Slider",
    Callback = function(Value)
-      getgenv().flySpeed = Value
+      game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = Value
    end,
 })
 
@@ -96,63 +96,20 @@ local Slider = TabMisc:CreateSlider({
 
 
 
--- noclip+fly, latest anticheat bypass (walkspeed soon)
-
+-- Noclip motor 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
-local hrp = character:WaitForChild("HumanoidRootPart")
-local humanoid = character:WaitForChild("Humanoid")
+local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
 
-player.CharacterAdded:Connect(function(char)
-	character = char
-	hrp = character:WaitForChild("HumanoidRootPart")
-	humanoid = character:WaitForChild("Humanoid")
-end)
+getgenv().noclipEnabled = false
 
-local direction = Vector3.zero
-
-UserInputService.InputBegan:Connect(function(input, gpe)
-	if gpe then return end
-	if input.KeyCode == Enum.KeyCode.W then direction += Vector3.new(0, 0, -1) end
-	if input.KeyCode == Enum.KeyCode.S then direction += Vector3.new(0, 0, 1) end
-	if input.KeyCode == Enum.KeyCode.A then direction += Vector3.new(-1, 0, 0) end
-	if input.KeyCode == Enum.KeyCode.D then direction += Vector3.new(1, 0, 0) end
-	if input.KeyCode == Enum.KeyCode.Space then direction += Vector3.new(0, 1, 0) end
-	if input.KeyCode == Enum.KeyCode.LeftControl then direction += Vector3.new(0, -1, 0) end
-end)
-
-UserInputService.InputEnded:Connect(function(input, gpe)
-	if gpe then return end
-	if input.KeyCode == Enum.KeyCode.W then direction -= Vector3.new(0, 0, -1) end
-	if input.KeyCode == Enum.KeyCode.S then direction -= Vector3.new(0, 0, 1) end
-	if input.KeyCode == Enum.KeyCode.A then direction -= Vector3.new(-1, 0, 0) end
-	if input.KeyCode == Enum.KeyCode.D then direction -= Vector3.new(1, 0, 0) end
-	if input.KeyCode == Enum.KeyCode.Space then direction -= Vector3.new(0, 1, 0) end
-	if input.KeyCode == Enum.KeyCode.LeftControl then direction -= Vector3.new(0, -1, 0) end
-end)
-
-RunService.RenderStepped:Connect(function()
-	if humanoid and not getgenv().flyEnabled then
-		humanoid:ChangeState(8)
-		humanoid.WalkSpeed = getgenv().walkSpeed
-	end
-
-	if getgenv().flyEnabled and humanoid and hrp then
-		humanoid:ChangeState(11)
-		local camCF = workspace.CurrentCamera.CFrame
-		local moveDir = camCF:VectorToWorldSpace(direction.Magnitude > 0 and direction.Unit or Vector3.zero)
-		hrp.Velocity = moveDir * getgenv().flySpeed
-	elseif humanoid and humanoid:GetState() == 11 then
-		humanoid:ChangeState(8)
-	end
-
-	if getgenv().noclipEnabled and character then
+RunService.Stepped:Connect(function()
+	if getgenv().noclipEnabled and humanoidRootPart then
 		for _, v in pairs(character:GetDescendants()) do
-			if v:IsA("BasePart") and v.CanCollide then
+			if v:IsA("BasePart") and v.CanCollide == true then
 				v.CanCollide = false
 			end
 		end
