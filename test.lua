@@ -157,15 +157,18 @@ end)
 
 
 -- fly (its here to keep the noclip and walkspeed safe
+-- Aynı hizmetleri kullan:
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UIS = game:GetService("UserInputService")
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
 
+-- Referanslar:
 local character, humanoid, hrp, bv
 local dir = Vector3.zero
 local isMobile = UIS.TouchEnabled and not UIS.KeyboardEnabled
+local FLY_SPEED = 60
 
 getgenv().flyEnabled = false
 
@@ -179,6 +182,7 @@ end
 local function cleanUpCharacter()
 	if humanoid then
 		humanoid.AutoRotate = false
+		humanoid:ChangeState(Enum.HumanoidStateType.Running)
 	end
 	if hrp then
 		hrp.RotVelocity = Vector3.zero
@@ -191,6 +195,7 @@ player.CharacterAdded:Connect(function()
 	cleanUpCharacter()
 end)
 
+-- PC için yön kontrol
 UIS.InputBegan:Connect(function(input, g)
 	if g or isMobile then return end
 	if input.KeyCode == Enum.KeyCode.W then dir += Vector3.new(0, 0, -1) end
@@ -211,7 +216,7 @@ UIS.InputEnded:Connect(function(input, g)
 	if input.KeyCode == Enum.KeyCode.LeftControl then dir -= Vector3.new(0, -1, 0) end
 end)
 
--- 🔘 Fly Toggle
+-- Fly Toggle
 TabMisc:CreateToggle({
 	Name = "Fly",
 	CurrentValue = false,
@@ -226,7 +231,6 @@ TabMisc:CreateToggle({
 			camera.CameraSubject = humanoid
 			camera.CameraType = Enum.CameraType.Track
 
-			-- 🌀 BodyVelocity ekle
 			if hrp and not bv then
 				bv = Instance.new("BodyVelocity")
 				bv.Name = "FlyForce"
@@ -235,6 +239,9 @@ TabMisc:CreateToggle({
 				bv.Velocity = Vector3.zero
 				bv.Parent = hrp
 			end
+
+			humanoid.PlatformStand = false
+			humanoid:ChangeState(Enum.HumanoidStateType.Running)
 		else
 			if bv then
 				bv:Destroy()
@@ -251,7 +258,7 @@ TabMisc:CreateToggle({
 	end,
 })
 
--- 🚀 Uçuş Motoru
+-- Uçuş Motoru
 RunService.RenderStepped:Connect(function()
 	if not getgenv().flyEnabled then return end
 	if not character or not humanoid or not hrp then updateRefs() return end
@@ -259,15 +266,23 @@ RunService.RenderStepped:Connect(function()
 	local inputVec = isMobile and humanoid.MoveDirection or dir
 
 	if inputVec.Magnitude > 0 then
-		local unitVec = inputVec.Unit
-		local moveVec = isMobile and unitVec or camera.CFrame:VectorToWorldSpace(unitVec)
-
+		local moveVec = (isMobile and inputVec or camera.CFrame:VectorToWorldSpace(inputVec)).Unit
 		if bv then
-			bv.Velocity = moveVec * 60
+			bv.Velocity = moveVec * FLY_SPEED
 		end
+
+		humanoid:ChangeState(Enum.HumanoidStateType.Running)
 	else
 		if bv then
 			bv.Velocity = Vector3.zero
 		end
+
+		-- Animasyon devam etsin diye:
+		humanoid:ChangeState(Enum.HumanoidStateType.Running)
+	end
+
+	-- Yuvarlanma engelle
+	if hrp then
+		hrp.RotVelocity = Vector3.zero
 	end
 end)
