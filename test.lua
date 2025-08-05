@@ -169,130 +169,52 @@ Advanced Fly System for Roblox (Mobile-First, Camera-Based, Animation-Safe)
 By revon, works on almost all games including ink game. Nun anticheat can detect this.
 Toggle with getgenv().flyEnabled (e.g. via Rayfield UI toggle).
 --]]
-
--- Services
+-- Camera-based movement
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-
--- Player and character references
 local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
-local humanoid = character:WaitForChild("Humanoid")
 local hrp = character:WaitForChild("HumanoidRootPart")
+local humanoid = character:WaitForChild("Humanoid")
 local camera = workspace.CurrentCamera
+local control = require(player:WaitForChild("PlayerScripts"):WaitForChild("PlayerModule"):WaitForChild("ControlModule"))
 
--- Control module for movement (handles mobile joystick, keyboard, gamepad)
-local controlModule = require(player:WaitForChild("PlayerScripts")
-    :WaitForChild("PlayerModule"):WaitForChild("ControlModule"))
+getgenv().flyEnabled = false
 
--- Ensure global toggle exists
-if getgenv().flyEnabled == nil then
-    getgenv().flyEnabled = false
+local bv, bf
+local SPEED = 60
+
+local function startFly()
+	if bv then return end
+	bv = Instance.new("BodyVelocity", hrp)
+	bv.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+	bv.P = 1250
+
+	bf = Instance.new("BodyForce", hrp)
+	bf.Force = Vector3.new(0, workspace.Gravity * hrp:GetMass(), 0)
 end
 
--- Flight settings
-local flightSpeed = 50  -- flight speed (studs per second)
-
--- State variables
-local isFlying = false
-local bodyVelocity, bodyGyro, bodyForce
-local baseForce = Vector3.new(0, 0, 0)
-
--- Function to enable flight: create Body movers and lock camera
-local function enableFlight()
-    -- Lock camera to HumanoidRootPart (attach mode)
-    camera.CameraType = Enum.CameraType.Attach
-    camera.CameraSubject = hrp
-
-    -- Calculate upward force to counteract gravity (hover force)
-    local mass = hrp:GetMass()
-    baseForce = Vector3.new(0, workspace.Gravity * mass, 0)
-
-    -- Create BodyVelocity for flight movement
-    bodyVelocity = Instance.new("BodyVelocity")
-    bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-    bodyVelocity.Velocity = Vector3.new(0, 0, 0)
-    bodyVelocity.Parent = hrp
-
-    -- Create BodyGyro to orient character to camera direction (yaw only)
-    bodyGyro = Instance.new("BodyGyro")
-    bodyGyro.MaxTorque = Vector3.new(0, math.huge, 0)  -- only allow yaw rotation
-    bodyGyro.P = 3000  -- power of orientation correction
-    bodyGyro.D = 300
-    bodyGyro.Parent = hrp
-
-    -- Create BodyForce to neutralize gravity
-    bodyForce = Instance.new("BodyForce")
-    bodyForce.Force = baseForce
-    bodyForce.Parent = hrp
-
-    isFlying = true
+local function stopFly()
+	if bv then bv:Destroy() bv = nil end
+	if bf then bf:Destroy() bf = nil end
 end
 
--- Function to disable flight: restore camera and remove Body movers
-local function disableFlight()
-    -- Restore default camera control
-    camera.CameraType = Enum.CameraType.Custom
-    camera.CameraSubject = humanoid
-
-    -- Remove Body movers
-    if bodyVelocity then
-        bodyVelocity:Destroy()
-        bodyVelocity = nil
-    end
-    if bodyGyro then
-        bodyGyro:Destroy()
-        bodyGyro = nil
-    end
-    if bodyForce then
-        bodyForce:Destroy()
-        bodyForce = nil
-    end
-
-    isFlying = false
-end
-
--- Update loop: handle flight each frame
 RunService.Heartbeat:Connect(function()
-    if getgenv().flyEnabled then
-        if not isFlying then
-            enableFlight()
-        end
+	if getgenv().flyEnabled then
+		startFly()
 
-        -- Get movement vector (joystick or keyboard relative to camera)
-        local moveVec = controlModule:GetMoveVector()
-        if moveVec.Magnitude > 0 then
-            -- Convert to world direction relative to camera orientation
-            local camCFrame = camera.CFrame
-            local forward = camCFrame.LookVector
-            local right = camCFrame.RightVector
-            local direction = (forward * moveVec.Z) + (right * moveVec.X)
+		local move = control:GetMoveVector()
+		local camDir = camera.CFrame.LookVector
+		local horizontal = Vector3.new(camDir.X, 0, camDir.Z).Unit
+		local direction = (horizontal * move.Z) + (camera.CFrame.RightVector * move.X)
+		local vertical = Vector3.new(0, camDir.Y * move.Z, 0)
 
-            -- Apply movement velocity
-            bodyVelocity.Velocity = direction.Unit * flightSpeed
-
-            -- Orient character to face camera's horizontal direction
-            local horizontalLook = Vector3.new(forward.X, 0, forward.Z)
-            if horizontalLook.Magnitude > 0 then
-                bodyGyro.CFrame = CFrame.new(hrp.Position, hrp.Position + horizontalLook)
-            end
-
-            -- Vertical flight control: ascend/descend based on camera tilt
-            if forward.Y < 0 and moveVec.Z > 0 then
-                -- Looking down and pushing forward: descend
-                bodyForce.Force = Vector3.new(0, 0, 0)
-            else
-                -- Hover (neutralize gravity)
-                bodyForce.Force = baseForce
-            end
-        else
-            -- No movement input: hover in place
-            bodyVelocity.Velocity = Vector3.new(0, 0, 0)
-            bodyForce.Force = baseForce
-        end
-    else
-        if isFlying then
-            disableFlight()
-        end
-    end
+		if direction.Magnitude > 0 then
+			bv.Velocity = (direction + vertical).Unit * SPEED
+		else
+			bv.Velocity = Vector3.zero
+		end
+	else
+		stopFly()
+	end
 end)
