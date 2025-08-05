@@ -4,7 +4,7 @@ local Window = Rayfield:CreateWindow({
    Name = "Test",
    Icon = 0, -- Icon in Topbar. Can use Lucide Icons (string) or Roblox Image (number). 0 to use no icon (default).
    LoadingTitle = "Rayfield Interface Suite",
-   LoadingSubtitle = "Rayfield by Sirius, Script by Star1xr(revon)",
+   LoadingSubtitle = "by Sirius",
    ShowText = "Rayfield", -- for mobile users to unhide rayfield, change if you'd like
    Theme = "Default", -- Check https://docs.sirius.menu/rayfield/configuration/themes
 
@@ -71,7 +71,7 @@ local Toggle2 = TabMisc:CreateToggle({
    end,
 })
 
-local Slider = TabGame:CreateSlider({
+local Slider = TabMisc:CreateSlider({
    Name = "Fly Speed",
    Range = {10, 150},
    Increment = 5,
