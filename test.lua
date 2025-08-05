@@ -162,84 +162,112 @@ local RunService = game:GetService("RunService")
 local UIS = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local humanoid = character:WaitForChild("Humanoid")
-local hrp = character:WaitForChild("HumanoidRootPart")
-local camera = workspace.CurrentCamera
-
--- Track movement direction
-local direction = Vector3.zero
+local character, humanoid, hrp
+local dir = Vector3.zero
 local isMobile = UIS.TouchEnabled and not UIS.KeyboardEnabled
-local joystickInput = Vector3.zero
-
--- Update on character respawn
-player.CharacterAdded:Connect(function(char)
-	character = char
-	humanoid = char:WaitForChild("Humanoid")
-	hrp = char:WaitForChild("HumanoidRootPart")
-	camera = workspace.CurrentCamera
-end)
-
--- Desktop controls (WASD + Space + Ctrl)
-UIS.InputBegan:Connect(function(input, gpe)
-	if gpe or isMobile then return end
-	if input.KeyCode == Enum.KeyCode.W then direction += Vector3.new(0, 0, -1) end
-	if input.KeyCode == Enum.KeyCode.S then direction += Vector3.new(0, 0, 1) end
-	if input.KeyCode == Enum.KeyCode.A then direction += Vector3.new(-1, 0, 0) end
-	if input.KeyCode == Enum.KeyCode.D then direction += Vector3.new(1, 0, 0) end
-	if input.KeyCode == Enum.KeyCode.Space then direction += Vector3.new(0, 1, 0) end
-	if input.KeyCode == Enum.KeyCode.LeftControl then direction += Vector3.new(0, -1, 0) end
-end)
-
-UIS.InputEnded:Connect(function(input, gpe)
-	if gpe or isMobile then return end
-	if input.KeyCode == Enum.KeyCode.W then direction -= Vector3.new(0, 0, -1) end
-	if input.KeyCode == Enum.KeyCode.S then direction -= Vector3.new(0, 0, 1) end
-	if input.KeyCode == Enum.KeyCode.A then direction -= Vector3.new(-1, 0, 0) end
-	if input.KeyCode == Enum.KeyCode.D then direction -= Vector3.new(1, 0, 0) end
-	if input.KeyCode == Enum.KeyCode.Space then direction -= Vector3.new(0, 1, 0) end
-	if input.KeyCode == Enum.KeyCode.LeftControl then direction -= Vector3.new(0, -1, 0) end
-end)
-
--- Placeholder for mobile joystick input (customize if needed)
-local function updateJoystickInput()
-	joystickInput = Vector3.new(0, 0, 0)
-end
 
 getgenv().flyEnabled = false
 
--- Toggle as always shi
-local ToggleFly = TabMisc:CreateToggle({
+-- Güncel referansları al
+local function updateRefs()
+	character = player.Character
+	if not character then return end
+	humanoid = character:FindFirstChildOfClass("Humanoid")
+	hrp = character:FindFirstChild("HumanoidRootPart")
+end
+
+-- İlk başta al
+updateRefs()
+
+-- Karakter tekrar spawn olursa güncelle
+player.CharacterAdded:Connect(function()
+	wait(0.5)
+	updateRefs()
+end)
+
+-- PC input yakalama
+UIS.InputBegan:Connect(function(input, g)
+	if g or isMobile then return end
+	if input.KeyCode == Enum.KeyCode.W then dir += Vector3.new(0, 0, -1) end
+	if input.KeyCode == Enum.KeyCode.S then dir += Vector3.new(0, 0, 1) end
+	if input.KeyCode == Enum.KeyCode.A then dir += Vector3.new(-1, 0, 0) end
+	if input.KeyCode == Enum.KeyCode.D then dir += Vector3.new(1, 0, 0) end
+	if input.KeyCode == Enum.KeyCode.Space then dir += Vector3.new(0, 1, 0) end
+	if input.KeyCode == Enum.KeyCode.LeftControl then dir += Vector3.new(0, -1, 0) end
+end)
+
+UIS.InputEnded:Connect(function(input, g)
+	if g or isMobile then return end
+	if input.KeyCode == Enum.KeyCode.W then dir -= Vector3.new(0, 0, -1) end
+	if input.KeyCode == Enum.KeyCode.S then dir -= Vector3.new(0, 0, 1) end
+	if input.KeyCode == Enum.KeyCode.A then dir -= Vector3.new(-1, 0, 0) end
+	if input.KeyCode == Enum.KeyCode.D then dir -= Vector3.new(1, 0, 0) end
+	if input.KeyCode == Enum.KeyCode.Space then dir -= Vector3.new(0, 1, 0) end
+	if input.KeyCode == Enum.KeyCode.LeftControl then dir -= Vector3.new(0, -1, 0) end
+end)
+
+-- Rayfield Toggle
+TabMisc:CreateToggle({
 	Name = "Fly",
 	CurrentValue = false,
 	Flag = "FlyToggle",
-	Callback = function(Value)
-		getgenv().flyEnabled = Value
+	Callback = function(v)
+		getgenv().flyEnabled = v
+		if not v and humanoid then
+			humanoid.PlatformStand = false
+			if hrp then hrp.Velocity = Vector3.zero end
+			humanoid:ChangeState(Enum.HumanoidStateType.Running)
+			dir = Vector3.zero
+		end
 	end,
 })
 
--- 🛫 Pure Fly Motor
+-- Fly Loop (Ana kontrol)
 RunService.RenderStepped:Connect(function()
-	if getgenv().flyEnabled and humanoid and hrp then
-		if isMobile then updateJoystickInput() else joystickInput = Vector3.zero end
+	if not getgenv().flyEnabled then return end
+	if not character or not humanoid or not hrp then updateRefs() return end
 
-		local inputDir = direction + joystickInput
-		if inputDir.Magnitude > 0 then
-			humanoid:ChangeState(Enum.HumanoidStateType.Physics)
-			local moveVec = camera.CFrame:VectorToWorldSpace(inputDir.Unit)
-			hrp.Velocity = moveVec * 50
-			humanoid.PlatformStand = true
-		else
-			if humanoid:GetState() == Enum.HumanoidStateType.Physics then
-				humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
-				humanoid.PlatformStand = false
-				hrp.Velocity = Vector3.zero
-			end
-		end
+	local inputVec
+	if isMobile then
+		inputVec = humanoid.MoveDirection
 	else
-		if humanoid and humanoid:GetState() == Enum.HumanoidStateType.Physics then
-			humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
-			humanoid.PlatformStand = false
-		end
+		inputVec = dir
+	end
+
+	if inputVec.Magnitude > 0 then
+		-- Normalize input
+		local moveUnit = inputVec.Unit
+		local cam = workspace.CurrentCamera
+		local worldVec = cam.CFrame:VectorToWorldSpace(moveUnit)
+
+		-- Apply
+		humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+		humanoid.PlatformStand = true
+		hrp.Velocity = worldVec * 60
+	else
+		humanoid.PlatformStand = true
+		hrp.Velocity = Vector3.zero
 	end
 end)
+
+-- Yedek kontrol loop
+RunService.Heartbeat:Connect(function()
+	if not getgenv().flyEnabled then return end
+	if not humanoid or not hrp then updateRefs() return end
+
+	if humanoid:GetState() ~= Enum.HumanoidStateType.Physics then
+		humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+	end
+end)
+
+-- 3 saniyede bir yedek ref kontrol
+do
+	local counter = 0
+	RunService.Heartbeat:Connect(function(dt)
+		counter += dt
+		if counter >= 3 then
+			counter = 0
+			updateRefs()
+		end
+	end)
+end
