@@ -93,7 +93,7 @@ local Toggle = TabMisc:CreateToggle({
 
 
 
-
+-- tried to bypass anticheat shit for hours
 
 
 -- Noclip motor 
@@ -102,18 +102,33 @@ local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
-local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
 
-getgenv().noclipEnabled = false
-
-RunService.Stepped:Connect(function()
-	if getgenv().noclipEnabled and humanoidRootPart then
-		for _, v in pairs(character:GetDescendants()) do
-			if v:IsA("BasePart") and v.CanCollide == true then
-				v.CanCollide = false
+local function noclip(state)
+	if character then
+		for _, part in pairs(character:GetDescendants()) do
+			if part:IsA("BasePart") then
+				part.CanCollide = not state
 			end
 		end
 	end
+end
+
+getgenv().noclipEnabled = false
+
+TabMisc:CreateToggle({
+	Name = "Noclip",
+	CurrentValue = false,
+	Flag = "Toggle",
+	Callback = function(Value)
+		getgenv().noclipEnabled = Value
+		noclip(Value) -- Toggle fix
+	end,
+})
+
+player.CharacterAdded:Connect(function(char)
+	character = char
+	wait(1)
+	noclip(getgenv().noclipEnabled)
 end)
 
 
@@ -128,8 +143,6 @@ local character = player.Character or player.CharacterAdded:Wait()
 local hrp = character:WaitForChild("HumanoidRootPart")
 local humanoid = character:WaitForChild("Humanoid")
 
-getgenv().flyEnabled = false
-
 player.CharacterAdded:Connect(function(char)
 	character = char
 	hrp = char:WaitForChild("HumanoidRootPart")
@@ -139,6 +152,7 @@ end)
 local direction = Vector3.zero
 local isMobile = UIS.TouchEnabled and not UIS.KeyboardEnabled
 
+-- PC inputs
 UIS.InputBegan:Connect(function(input, gpe)
 	if gpe or isMobile then return end
 	if input.KeyCode == Enum.KeyCode.W then direction += Vector3.new(0, 0, -1) end
@@ -159,6 +173,9 @@ UIS.InputEnded:Connect(function(input, gpe)
 	if input.KeyCode == Enum.KeyCode.LeftControl then direction -= Vector3.new(0, -1, 0) end
 end)
 
+-- Mobil joystick 
+local mobileJoyDirection = Vector3.zero
+
 RunService.RenderStepped:Connect(function()
 	if getgenv().flyEnabled and hrp and humanoid then
 		humanoid:ChangeState(11)
@@ -167,7 +184,13 @@ RunService.RenderStepped:Connect(function()
 		local moveDir
 
 		if isMobile then
-			moveDir = camCF.LookVector + Vector3.new(0, 0.5, 0) -- Mobilde sürekli ileri + yukarı
+			-- Joystick hareket etmiyorsa uçma
+			if mobileJoyDirection.Magnitude > 0 then
+				-- Joystick yönünü kameraya göre dönüştür
+				moveDir = camCF:VectorToWorldSpace(mobileJoyDirection.Unit)
+			else
+				moveDir = Vector3.zero
+			end
 		else
 			moveDir = camCF:VectorToWorldSpace(direction.Magnitude > 0 and direction.Unit or Vector3.zero)
 		end
