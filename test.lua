@@ -96,7 +96,7 @@ local Slider = TabMisc:CreateSlider({
 
 
 
--- noclip+fly, latest anticheat bypass
+-- noclip+fly, latest anticheat bypass (walkspeed soon)
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -136,19 +136,24 @@ UserInputService.InputEnded:Connect(function(input, gpe)
 end)
 
 RunService.RenderStepped:Connect(function()
-	if getgenv().flyEnabled and hrp and humanoid then
+	if humanoid and not getgenv().flyEnabled then
+		humanoid:ChangeState(8)
+		humanoid.WalkSpeed = getgenv().walkSpeed
+	end
+
+	if getgenv().flyEnabled and humanoid and hrp then
 		humanoid:ChangeState(11)
 		local camCF = workspace.CurrentCamera.CFrame
-		local moveDir = camCF:VectorToWorldSpace(direction.Unit)
+		local moveDir = camCF:VectorToWorldSpace(direction.Magnitude > 0 and direction.Unit or Vector3.zero)
 		hrp.Velocity = moveDir * getgenv().flySpeed
 	elseif humanoid and humanoid:GetState() == 11 then
 		humanoid:ChangeState(8)
 	end
 
 	if getgenv().noclipEnabled and character then
-		for _, part in pairs(character:GetDescendants()) do
-			if part:IsA("BasePart") then
-				part.CanCollide = false
+		for _, v in pairs(character:GetDescendants()) do
+			if v:IsA("BasePart") and v.CanCollide then
+				v.CanCollide = false
 			end
 		end
 	end
