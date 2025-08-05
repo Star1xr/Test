@@ -53,7 +53,14 @@ local Button = TabRLGL:CreateButton({
    end,
 })
 
-
+local ToggleFly = TabMisc:CreateToggle({
+    Name = "Fly",
+    CurrentValue = false,
+    Flag = "FlyToggle",
+    Callback = function(Value)
+        getgenv().flyEnabled = Value
+    end,
+})
 
 
 
