@@ -65,14 +65,7 @@ local Slider = TabMisc:CreateSlider({
    end,
 })
 
-local Toggle = TabMisc:CreateToggle({
-   Name = "Fly",
-   CurrentValue = false,
-   Flag = "Toggle2",
-   Callback = function(Value)
-      getgenv().flyEnabled = Value
-   end,
-})
+
 
 
 
@@ -86,84 +79,48 @@ local Toggle = TabMisc:CreateToggle({
 
 -- tried to bypass anticheat shit for hours
 
+-- fly and noclip???
 
--- Noclip motor 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-
 local player = Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
 
-local function noclip(state)
-	if character then
-		for _, part in pairs(character:GetDescendants()) do
-			if part:IsA("BasePart") then
-				part.CanCollide = not state
-			end
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+local hrp = character:WaitForChild("HumanoidRootPart")
+
+player.CharacterAdded:Connect(function(char)
+	character = char
+	humanoid = char:WaitForChild("Humanoid")
+	hrp = char:WaitForChild("HumanoidRootPart")
+end)
+
+-- Noclip function
+local function setNoclip(state)
+	for _, part in pairs(character:GetDescendants()) do
+		if part:IsA("BasePart") then
+			part.CanCollide = not state
 		end
+	end
+	-- Jump fix
+	if humanoid then
+		humanoid.PlatformStand = false
+		humanoid.JumpPower = 50
 	end
 end
 
 getgenv().noclipEnabled = false
+getgenv().flyEnabled = false
 
 TabMisc:CreateToggle({
 	Name = "Noclip",
 	CurrentValue = false,
-	Flag = "Toggle",
+	Flag = "NoclipToggle",
 	Callback = function(Value)
 		getgenv().noclipEnabled = Value
-		noclip(Value) -- Toggle fix
+		setNoclip(Value)
 	end,
 })
-
-player.CharacterAdded:Connect(function(char)
-	character = char
-	wait(1)
-	noclip(getgenv().noclipEnabled)
-end)
-
-
-
--- fly motor (still testing this shit)
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local UIS = game:GetService("UserInputService")
-
-local player = Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local hrp = character:WaitForChild("HumanoidRootPart")
-local humanoid = character:WaitForChild("Humanoid")
-
-player.CharacterAdded:Connect(function(char)
-	character = char
-	hrp = char:WaitForChild("HumanoidRootPart")
-	humanoid = char:WaitForChild("Humanoid")
-end)
-
-local direction = Vector3.zero
-local isMobile = UIS.TouchEnabled and not UIS.KeyboardEnabled
-
-UIS.InputBegan:Connect(function(input, gpe)
-	if gpe or isMobile then return end
-	if input.KeyCode == Enum.KeyCode.W then direction += Vector3.new(0, 0, -1) end
-	if input.KeyCode == Enum.KeyCode.S then direction += Vector3.new(0, 0, 1) end
-	if input.KeyCode == Enum.KeyCode.A then direction += Vector3.new(-1, 0, 0) end
-	if input.KeyCode == Enum.KeyCode.D then direction += Vector3.new(1, 0, 0) end
-	if input.KeyCode == Enum.KeyCode.Space then direction += Vector3.new(0, 1, 0) end
-	if input.KeyCode == Enum.KeyCode.LeftControl then direction += Vector3.new(0, -1, 0) end
-end)
-
-UIS.InputEnded:Connect(function(input, gpe)
-	if gpe or isMobile then return end
-	if input.KeyCode == Enum.KeyCode.W then direction -= Vector3.new(0, 0, -1) end
-	if input.KeyCode == Enum.KeyCode.S then direction -= Vector3.new(0, 0, 1) end
-	if input.KeyCode == Enum.KeyCode.A then direction -= Vector3.new(-1, 0, 0) end
-	if input.KeyCode == Enum.KeyCode.D then direction -= Vector3.new(1, 0, 0) end
-	if input.KeyCode == Enum.KeyCode.Space then direction -= Vector3.new(0, 1, 0) end
-	if input.KeyCode == Enum.KeyCode.LeftControl then direction -= Vector3.new(0, -1, 0) end
-end)
-
-getgenv().flyEnabled = false
 
 TabMisc:CreateToggle({
 	Name = "Fly",
@@ -176,15 +133,19 @@ TabMisc:CreateToggle({
 
 RunService.RenderStepped:Connect(function()
 	if getgenv().flyEnabled and hrp and humanoid then
-		humanoid:ChangeState(Enum.HumanoidStateType.Physics)
-		local camCF = workspace.CurrentCamera.CFrame
-		local moveVec = camCF:VectorToWorldSpace(direction.Magnitude > 0 and direction.Unit or Vector3.zero)
-		hrp.Velocity = moveVec * 50
-		humanoid.PlatformStand = true
+		-- block jump fix
+		local velocity = hrp.Velocity
+		local upVelocity = Vector3.new(velocity.X, 50, velocity.Z) -- Yukarı hız sabit
+		hrp.Velocity = upVelocity
 	else
+		-- im bored
 		if humanoid:GetState() == Enum.HumanoidStateType.Physics then
 			humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
-			humanoid.PlatformStand = false
 		end
 	end
+end)
+
+player.CharacterAdded:Connect(function()
+	wait(1)
+	setNoclip(getgenv().noclipEnabled)
 end)
