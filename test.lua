@@ -62,15 +62,6 @@ local Toggle = TabMisc:CreateToggle({
    end,
 })
 
-local Toggle2 = TabMisc:CreateToggle({
-   Name = "Fly",
-   CurrentValue = false,
-   Flag = "Toggle2",
-   Callback = function(Value)
-      getgenv().flyEnabled = Value
-   end,
-})
-
 local Slider = TabMisc:CreateSlider({
    Name = "Walkspeed",
    Range = {10, 150},
