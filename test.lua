@@ -53,7 +53,7 @@ local Button = TabRLGL:CreateButton({
    end,
 })
 
-local Toggle = TabGame:CreateToggle({
+local Toggle = TabMisc:CreateToggle({
    Name = "Noclip",
    CurrentValue = false,
    Flag = "NoclipToggle",
