@@ -61,7 +61,8 @@ local Slider = TabMisc:CreateSlider({
    CurrentValue = 30,
    Flag = "Slider",
    Callback = function(Value)
-      game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = Value
+      desiredSpeed = Value
+      setWalkSpeed(Value)
    end,
 })
 
@@ -79,12 +80,13 @@ local Slider = TabMisc:CreateSlider({
 
 -- tried to bypass anticheat shit for hours
 
--- fly and noclip???
+-- fly and noclip??? yes rico kaboom🗣️
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local player = Players.LocalPlayer
+local UIS = game:GetService("UserInputService")
 
+local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoid = character:WaitForChild("Humanoid")
 local hrp = character:WaitForChild("HumanoidRootPart")
@@ -93,26 +95,64 @@ player.CharacterAdded:Connect(function(char)
 	character = char
 	humanoid = char:WaitForChild("Humanoid")
 	hrp = char:WaitForChild("HumanoidRootPart")
+	wait(1)
+	setNoclip(getgenv().noclipEnabled)
+	setWalkSpeed(desiredSpeed)
 end)
 
 -- Noclip function
 local function setNoclip(state)
+	if not character then return end
 	for _, part in pairs(character:GetDescendants()) do
 		if part:IsA("BasePart") then
 			part.CanCollide = not state
 		end
 	end
-	-- Jump fix
 	if humanoid then
 		humanoid.PlatformStand = false
 		humanoid.JumpPower = 50
 	end
 end
 
+-- WalkSpeed function
+local desiredSpeed = 50
+local function setWalkSpeed(speed)
+	if not character then return end
+	local hum = character:FindFirstChildOfClass("Humanoid")
+	if hum then
+		hum.WalkSpeed = speed
+	end
+end
+
+-- Fly controls
+local direction = Vector3.zero
+local isMobile = UIS.TouchEnabled and not UIS.KeyboardEnabled
+
+UIS.InputBegan:Connect(function(input, gpe)
+	if gpe or isMobile then return end
+	if input.KeyCode == Enum.KeyCode.W then direction += Vector3.new(0, 0, -1) end
+	if input.KeyCode == Enum.KeyCode.S then direction += Vector3.new(0, 0, 1) end
+	if input.KeyCode == Enum.KeyCode.A then direction += Vector3.new(-1, 0, 0) end
+	if input.KeyCode == Enum.KeyCode.D then direction += Vector3.new(1, 0, 0) end
+	if input.KeyCode == Enum.KeyCode.Space then direction += Vector3.new(0, 1, 0) end
+	if input.KeyCode == Enum.KeyCode.LeftControl then direction += Vector3.new(0, -1, 0) end
+end)
+
+UIS.InputEnded:Connect(function(input, gpe)
+	if gpe or isMobile then return end
+	if input.KeyCode == Enum.KeyCode.W then direction -= Vector3.new(0, 0, -1) end
+	if input.KeyCode == Enum.KeyCode.S then direction -= Vector3.new(0, 0, 1) end
+	if input.KeyCode == Enum.KeyCode.A then direction -= Vector3.new(-1, 0, 0) end
+	if input.KeyCode == Enum.KeyCode.D then direction -= Vector3.new(1, 0, 0) end
+	if input.KeyCode == Enum.KeyCode.Space then direction -= Vector3.new(0, 1, 0) end
+	if input.KeyCode == Enum.KeyCode.LeftControl then direction -= Vector3.new(0, -1, 0) end
+end)
+
 getgenv().noclipEnabled = false
 getgenv().flyEnabled = false
 
-TabMisc:CreateToggle({
+-- Toggles
+local ToggleNoclip = TabMisc:CreateToggle({
 	Name = "Noclip",
 	CurrentValue = false,
 	Flag = "NoclipToggle",
@@ -122,7 +162,7 @@ TabMisc:CreateToggle({
 	end,
 })
 
-TabMisc:CreateToggle({
+local ToggleFly = TabMisc:CreateToggle({
 	Name = "Fly",
 	CurrentValue = false,
 	Flag = "FlyToggle",
@@ -131,21 +171,36 @@ TabMisc:CreateToggle({
 	end,
 })
 
+-- Slider for walkspeed
+local SliderWalkspeed = TabMisc:CreateSlider({
+	Name = "WalkSpeed",
+	Range = {16, 150},
+	Increment = 1,
+	Suffix = "Speed",
+	CurrentValue = 50,
+	Flag = "WalkSpeedSlider",
+	Callback = function(Value)
+		desiredSpeed = Value
+		setWalkSpeed(desiredSpeed)
+	end,
+})
+
+-- Update everysecond
 RunService.RenderStepped:Connect(function()
-	if getgenv().flyEnabled and hrp and humanoid then
-		-- block jump fix
-		local velocity = hrp.Velocity
-		local upVelocity = Vector3.new(velocity.X, 50, velocity.Z) -- Yukarı hız sabit
-		hrp.Velocity = upVelocity
+	if getgenv().flyEnabled and humanoid and hrp then
+		humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+		local camCF = workspace.CurrentCamera.CFrame
+		local moveVector = camCF:VectorToWorldSpace(direction.Magnitude > 0 and direction.Unit or Vector3.zero)
+		hrp.Velocity = moveVector * 50
+		humanoid.PlatformStand = true
 	else
-		-- im bored
 		if humanoid:GetState() == Enum.HumanoidStateType.Physics then
 			humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+			humanoid.PlatformStand = false
 		end
 	end
-end)
-
-player.CharacterAdded:Connect(function()
-	wait(1)
-	setNoclip(getgenv().noclipEnabled)
+	setWalkSpeed(desiredSpeed)
+	if getgenv().noclipEnabled then
+		setNoclip(true)
+	end
 end)
