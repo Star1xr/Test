@@ -62,7 +62,26 @@ local Toggle = TabMisc:CreateToggle({
    end,
 })
 
+local Toggle2 = TabMisc:CreateToggle({
+   Name = "Fly",
+   CurrentValue = false,
+   Flag = "Toggle2",
+   Callback = function(Value)
+      getgenv().flyEnabled = Value
+   end,
+})
 
+local Slider = TabGame:CreateSlider({
+   Name = "Fly Speed",
+   Range = {10, 150},
+   Increment = 5,
+   Suffix = "Speed",
+   CurrentValue = 30,
+   Flag = "FlySpeed",
+   Callback = function(Value)
+      getgenv().flySpeed = Value
+   end,
+})
 
 
 
@@ -96,3 +115,50 @@ RunService.Stepped:Connect(function()
 	end
 end)
 
+
+-- Fly motor(anticheat bypass last update)
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+local humanoid = character:WaitForChild("Humanoid")
+
+local direction = Vector3.zero
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+	if input.KeyCode == Enum.KeyCode.W then direction += Vector3.new(0, 0, -1) end
+	if input.KeyCode == Enum.KeyCode.S then direction += Vector3.new(0, 0, 1) end
+	if input.KeyCode == Enum.KeyCode.A then direction += Vector3.new(-1, 0, 0) end
+	if input.KeyCode == Enum.KeyCode.D then direction += Vector3.new(1, 0, 0) end
+	if input.KeyCode == Enum.KeyCode.Space then direction += Vector3.new(0, 1, 0) end
+	if input.KeyCode == Enum.KeyCode.LeftControl then direction += Vector3.new(0, -1, 0) end
+end)
+
+UserInputService.InputEnded:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+	if input.KeyCode == Enum.KeyCode.W then direction -= Vector3.new(0, 0, -1) end
+	if input.KeyCode == Enum.KeyCode.S then direction -= Vector3.new(0, 0, 1) end
+	if input.KeyCode == Enum.KeyCode.A then direction -= Vector3.new(-1, 0, 0) end
+	if input.KeyCode == Enum.KeyCode.D then direction -= Vector3.new(1, 0, 0) end
+	if input.KeyCode == Enum.KeyCode.Space then direction -= Vector3.new(0, 1, 0) end
+	if input.KeyCode == Enum.KeyCode.LeftControl then direction -= Vector3.new(0, -1, 0) end
+end)
+
+RunService.RenderStepped:Connect(function()
+	if getgenv().flyEnabled then
+		humanoid.PlatformStand = true
+		if direction.Magnitude > 0 then
+			local camCF = workspace.CurrentCamera.CFrame
+			local moveDir = camCF:VectorToWorldSpace(direction.Unit)
+			humanoidRootPart.Velocity = moveDir * getgenv().flySpeed
+		else
+			humanoidRootPart.Velocity = Vector3.zero
+		end
+	else
+		humanoid.PlatformStand = false
+	end
+end)
