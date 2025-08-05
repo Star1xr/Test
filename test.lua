@@ -1,10 +1,10 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "Test",
+   Name = "Ink Game",
    Icon = 0, -- Icon in Topbar. Can use Lucide Icons (string) or Roblox Image (number). 0 to use no icon (default).
-   LoadingTitle = "Rayfield Interface Suite",
-   LoadingSubtitle = "by Sirius",
+   LoadingTitle = "RevonScripts - Ink Game",
+   LoadingSubtitle = "by revon",
    ShowText = "Rayfield", -- for mobile users to unhide rayfield, change if you'd like
    Theme = "Default", -- Check https://docs.sirius.menu/rayfield/configuration/themes
 
@@ -163,130 +163,136 @@ end)
 
 
 
--- fly (its here to keep the noclip and walkspeed safe
--- Rayfield uyumlu karakter uçuş sistemi
--- Kamera yönüne göre tam 3D uçuş, mobil ve PC uyumlu
+-- fly (its here to keep the noclip and walkspeed safe🥀
+--[[
+Advanced Fly System for Roblox (Mobile-First, Camera-Based, Animation-Safe)
+By revon, works on almost all games including ink game. Nun anticheat can detect this.
+Toggle with getgenv().flyEnabled (e.g. via Rayfield UI toggle).
+--]]
+
+-- Services
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
 
+-- Player and character references
 local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoid = character:WaitForChild("Humanoid")
 local hrp = character:WaitForChild("HumanoidRootPart")
-
--- Uçuş nesneleri
-local bodyVelocity = nil
-local bodyGyro = nil
-local bodyForce = nil
-local originalAutoRotate = humanoid.AutoRotate
-
--- Uçuş hızı (istendiği şekilde ayarlanabilir)
-local FLY_SPEED = 50
-
--- Kamera referansı
 local camera = workspace.CurrentCamera
 
--- Uçuş etkin/kapalı takibi
-local flying = false
+-- Control module for movement (handles mobile joystick, keyboard, gamepad)
+local controlModule = require(player:WaitForChild("PlayerScripts")
+    :WaitForChild("PlayerModule"):WaitForChild("ControlModule"))
 
--- Mobil veya joystick hareketi için tutulan değerler (isteğe bağlı)
-local gamepadAxis = Vector2.new(0, 0)
-UserInputService.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Gamepad1 then
-        if input.KeyCode == Enum.KeyCode.Thumbstick1 then
-            gamepadAxis = Vector2.new(input.Position.X, input.Position.Y)
+-- Ensure global toggle exists
+if getgenv().flyEnabled == nil then
+    getgenv().flyEnabled = false
+end
+
+-- Flight settings
+local flightSpeed = 50  -- flight speed (studs per second)
+
+-- State variables
+local isFlying = false
+local bodyVelocity, bodyGyro, bodyForce
+local baseForce = Vector3.new(0, 0, 0)
+
+-- Function to enable flight: create Body movers and lock camera
+local function enableFlight()
+    -- Lock camera to HumanoidRootPart (attach mode)
+    camera.CameraType = Enum.CameraType.Attach
+    camera.CameraSubject = hrp
+
+    -- Calculate upward force to counteract gravity (hover force)
+    local mass = hrp:GetMass()
+    baseForce = Vector3.new(0, workspace.Gravity * mass, 0)
+
+    -- Create BodyVelocity for flight movement
+    bodyVelocity = Instance.new("BodyVelocity")
+    bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+    bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+    bodyVelocity.Parent = hrp
+
+    -- Create BodyGyro to orient character to camera direction (yaw only)
+    bodyGyro = Instance.new("BodyGyro")
+    bodyGyro.MaxTorque = Vector3.new(0, math.huge, 0)  -- only allow yaw rotation
+    bodyGyro.P = 3000  -- power of orientation correction
+    bodyGyro.D = 300
+    bodyGyro.Parent = hrp
+
+    -- Create BodyForce to neutralize gravity
+    bodyForce = Instance.new("BodyForce")
+    bodyForce.Force = baseForce
+    bodyForce.Parent = hrp
+
+    isFlying = true
+end
+
+-- Function to disable flight: restore camera and remove Body movers
+local function disableFlight()
+    -- Restore default camera control
+    camera.CameraType = Enum.CameraType.Custom
+    camera.CameraSubject = humanoid
+
+    -- Remove Body movers
+    if bodyVelocity then
+        bodyVelocity:Destroy()
+        bodyVelocity = nil
+    end
+    if bodyGyro then
+        bodyGyro:Destroy()
+        bodyGyro = nil
+    end
+    if bodyForce then
+        bodyForce:Destroy()
+        bodyForce = nil
+    end
+
+    isFlying = false
+end
+
+-- Update loop: handle flight each frame
+RunService.Heartbeat:Connect(function()
+    if getgenv().flyEnabled then
+        if not isFlying then
+            enableFlight()
+        end
+
+        -- Get movement vector (joystick or keyboard relative to camera)
+        local moveVec = controlModule:GetMoveVector()
+        if moveVec.Magnitude > 0 then
+            -- Convert to world direction relative to camera orientation
+            local camCFrame = camera.CFrame
+            local forward = camCFrame.LookVector
+            local right = camCFrame.RightVector
+            local direction = (forward * moveVec.Z) + (right * moveVec.X)
+
+            -- Apply movement velocity
+            bodyVelocity.Velocity = direction.Unit * flightSpeed
+
+            -- Orient character to face camera's horizontal direction
+            local horizontalLook = Vector3.new(forward.X, 0, forward.Z)
+            if horizontalLook.Magnitude > 0 then
+                bodyGyro.CFrame = CFrame.new(hrp.Position, hrp.Position + horizontalLook)
+            end
+
+            -- Vertical flight control: ascend/descend based on camera tilt
+            if forward.Y < 0 and moveVec.Z > 0 then
+                -- Looking down and pushing forward: descend
+                bodyForce.Force = Vector3.new(0, 0, 0)
+            else
+                -- Hover (neutralize gravity)
+                bodyForce.Force = baseForce
+            end
+        else
+            -- No movement input: hover in place
+            bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+            bodyForce.Force = baseForce
+        end
+    else
+        if isFlying then
+            disableFlight()
         end
     end
-end)
-
--- Uçuş döngüsü
-RunService.RenderStepped:Connect(function(dt)
-    -- Uçuş modu etkin değilse gerekli temizleme ve çıkış
-    if not getgenv().flyEnabled then
-        if flying then
-            -- Uçuş kapatılırken nesneleri kaldır, animasyonları ve rotasyonu geri yükle
-            if bodyVelocity then bodyVelocity:Destroy() end
-            if bodyGyro then bodyGyro:Destroy() end
-            if bodyForce then bodyForce:Destroy() end
-            bodyVelocity = nil
-            bodyGyro = nil
-            bodyForce = nil
-
-            humanoid.PlatformStand = false
-            humanoid.AutoRotate = originalAutoRotate
-        end
-        flying = false
-        return
-    end
-
-    -- Uçuş modu etkinleştiriliyorsa (ilk seferinde nesneleri oluştur)
-    if not flying then
-        -- Kamera karakteri takip edecek şekilde ayarla
-        camera.CameraSubject = humanoid
-        camera.CameraType = Enum.CameraType.Custom
-
-        -- Yerçekimini dengelemek için BodyForce ekle
-        bodyForce = Instance.new("BodyForce")
-        bodyForce.Force = Vector3.new(0, workspace.Gravity * hrp:GetMass(), 0)
-        bodyForce.Parent = hrp
-
-        -- Hareket kontrolü için BodyVelocity (yön vektörleri bu nesneyle uygulanacak)
-        bodyVelocity = Instance.new("BodyVelocity")
-        bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-        bodyVelocity.Velocity = Vector3.new(0, 0, 0)
-        bodyVelocity.Parent = hrp
-
-        -- Karakterin rotasyonunu kamera yönüne göre kilitlemek için BodyGyro
-        bodyGyro = Instance.new("BodyGyro")
-        bodyGyro.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
-        bodyGyro.D = 1250
-        bodyGyro.P = 3000
-        bodyGyro.CFrame = hrp.CFrame
-        bodyGyro.Parent = hrp
-
-        -- Animasyonları korumak için PlatformStand kapat ve AutoRotate devre dışı bırak
-        humanoid.PlatformStand = false
-        originalAutoRotate = humanoid.AutoRotate
-        humanoid.AutoRotate = false
-
-        flying = true
-    end
-
-    -- Hareket girişini oku (kameraya göre yön tayini)
-    local forward = 0
-    local right = 0
-    if UserInputService:IsKeyDown(Enum.KeyCode.W) or UserInputService:IsKeyDown(Enum.KeyCode.Up) then
-        forward = forward + 1
-    end
-    if UserInputService:IsKeyDown(Enum.KeyCode.S) or UserInputService:IsKeyDown(Enum.KeyCode.Down) then
-        forward = forward - 1
-    end
-    if UserInputService:IsKeyDown(Enum.KeyCode.A) or UserInputService:IsKeyDown(Enum.KeyCode.Left) then
-        right = right - 1
-    end
-    if UserInputService:IsKeyDown(Enum.KeyCode.D) or UserInputService:IsKeyDown(Enum.KeyCode.Right) then
-        right = right + 1
-    end
-    -- Gamepad sol joystick: X = sağ-sol, Y = ileri-geri
-    forward = forward + gamepadAxis.Y
-    right = right + gamepadAxis.X
-
-    local camCFrame = camera.CFrame
-    local moveVector = Vector3.new(0, 0, 0)
-    if forward ~= 0 or right ~= 0 then
-        local lookVec = camCFrame.LookVector
-        local rightVec = camCFrame.RightVector
-        -- Yön vektörü
-        moveVector = (lookVec * forward + rightVec * right).Unit * FLY_SPEED
-    end
-
-    -- Yatay rotasyonu karakterle hizala (BodyGyro)
-    local horizontalLook = Vector3.new(camCFrame.LookVector.X, 0, camCFrame.LookVector.Z)
-    if horizontalLook.Magnitude > 0 then
-        bodyGyro.CFrame = CFrame.new(hrp.Position, hrp.Position + horizontalLook)
-    end
-
-    -- Uçuş hızı ataması (BodyVelocity ile)
-    bodyVelocity.Velocity = Vector3.new(moveVector.X, moveVector.Y, moveVector.Z)
 end)
