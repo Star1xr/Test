@@ -1,12 +1,12 @@
+-- im bored so heres a script (fake lag)
 
 
--- [Rayfield Window and tab settings]
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-	Name = "Lag Menu",
-	LoadingTitle = "Egor Lag System",
-	LoadingSubtitle = "by ChatGPT",
+	Name = "LagLagLagLag",
+	LoadingTitle = "Fake Lag by revon",
+	LoadingSubtitle = "by revon",
 	ConfigurationSaving = {
 		Enabled = false,
 	},
@@ -18,37 +18,36 @@ local Window = Rayfield:CreateWindow({
 
 local MainTab = Window:CreateTab("Main", 4483362458)
 
--- needed
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local player = Players.LocalPlayer
-local delaySeconds = 0.5
+local delaySeconds = 4
+local moveSpeed = 0.02
 local lagEnabled = false
 
--- Toggle + motor
 MainTab:CreateToggle({
-	Name = "Fake Lag (Egor Style)",
+	Name = "Extreme Fake Lag",
 	CurrentValue = false,
-	Flag = "FakeLagToggle",
+	Flag = "FakeLag",
 	Callback = function(Value)
 		lagEnabled = Value
-
-		local function cloneCharacter(original)
-			local clone = original:Clone()
-			clone.Name = "FakeLagDummy"
-			for _, part in ipairs(clone:GetDescendants()) do
-				if part:IsA("BasePart") then
-					part.Anchored = true
-				elseif part:IsA("Script") or part:IsA("LocalScript") then
-					part:Destroy()
+		local character = player.Character or player.CharacterAdded:Wait()
+		character:WaitForChild("HumanoidRootPart")
+		character:WaitForChild("Humanoid")
+		local hrp = character.HumanoidRootPart
+		local humanoid = character.Humanoid
+		if Value then
+			local dummy = character:Clone()
+			dummy.Name = "LagDummy"
+			for _, v in pairs(dummy:GetDescendants()) do
+				if v:IsA("BasePart") then
+					v.Anchored = true
+				elseif v:IsA("Script") or v:IsA("LocalScript") then
+					v:Destroy()
 				end
 			end
-			clone.Parent = workspace
-			return clone
-		end
-
-		local function makeInvisible(character)
+			dummy.Parent = workspace
 			for _, v in pairs(character:GetDescendants()) do
 				if v:IsA("BasePart") or v:IsA("Decal") then
 					v.Transparency = 1
@@ -56,54 +55,43 @@ MainTab:CreateToggle({
 					v.Enabled = false
 				end
 			end
-		end
-
-		local function makeVisible(character)
-			for _, v in pairs(character:GetDescendants()) do
-				if v:IsA("BasePart") or v:IsA("Decal") then
-					v.Transparency = 0
-				elseif v:IsA("ParticleEmitter") or v:IsA("Trail") then
-					v.Enabled = true
+			local posHistory = {}
+			local teleportLoop, moveLoop
+			moveLoop = RunService.RenderStepped:Connect(function()
+				table.insert(posHistory, hrp.Position)
+				if #posHistory > delaySeconds * 60 then
+					table.remove(posHistory, 1)
 				end
-			end
-		end
-
-		local character = player.Character or player.CharacterAdded:Wait()
-		character:WaitForChild("HumanoidRootPart")
-
-		if lagEnabled then
-			local dummy = cloneCharacter(character)
-			makeInvisible(character)
-
-			local lastUpdate = tick()
-			local rsConn = nil
-			local tpLoop = true
-
-			rsConn = RunService.RenderStepped:Connect(function()
-				if tick() - lastUpdate >= delaySeconds then
-					lastUpdate = tick()
-					local tween = TweenService:Create(dummy:FindFirstChild("HumanoidRootPart"), TweenInfo.new(delaySeconds, Enum.EasingStyle.Linear), {
-						CFrame = character.HumanoidRootPart.CFrame
-					})
-					tween:Play()
+				local direction = hrp.CFrame.LookVector
+				dummy:FindFirstChild("HumanoidRootPart").CFrame = dummy:FindFirstChild("HumanoidRootPart").CFrame + (direction * moveSpeed)
+				local dummyHumanoid = dummy:FindFirstChildWhichIsA("Humanoid")
+				if dummyHumanoid then
+					dummyHumanoid.WalkSpeed = 16
+					dummyHumanoid.HipHeight = humanoid.HipHeight
+					dummyHumanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+					dummyHumanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
 				end
 			end)
-
 			coroutine.wrap(function()
-				while lagEnabled and tpLoop do
+				while lagEnabled do
 					task.wait(delaySeconds)
-					if dummy and dummy:FindFirstChild("HumanoidRootPart") then
-						character.HumanoidRootPart.CFrame = dummy.HumanoidRootPart.CFrame
+					if #posHistory > 0 then
+						hrp.CFrame = CFrame.new(posHistory[#posHistory])
+						posHistory = {}
 					end
 				end
 			end)()
-
-			-- After toggle delete dummy
 			spawn(function()
 				while lagEnabled do task.wait() end
-				if rsConn then rsConn:Disconnect() end
+				if moveLoop then moveLoop:Disconnect() end
 				if dummy then dummy:Destroy() end
-				makeVisible(character)
+				for _, v in pairs(character:GetDescendants()) do
+					if v:IsA("BasePart") or v:IsA("Decal") then
+						v.Transparency = 0
+					elseif v:IsA("ParticleEmitter") or v:IsA("Trail") then
+						v.Enabled = true
+					end
+				end
 			end)
 		end
 	end,
