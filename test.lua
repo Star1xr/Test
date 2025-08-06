@@ -206,7 +206,7 @@ RunService.Heartbeat:Connect(function()
 		local move = control:GetMoveVector()
 		local camDir = camera.CFrame.LookVector
 		local horizontal = Vector3.new(camDir.X, 0, camDir.Z).Unit
-		local direction = (horizontal * move.Z) + (camera.CFrame.RightVector * move.X)
+		local direction = (horizontal * -move.Z) + (camera.CFrame.RightVector * -move.X)
 		local vertical = Vector3.new(0, camDir.Y * move.Z, 0)
 
 		if direction.Magnitude > 0 then
