@@ -54,7 +54,7 @@ local Button = TabRLGL:CreateButton({
 })
 
 local ToggleFly = TabMisc:CreateToggle({
-    Name = "Fly",
+    Name = "Fly(DETECTED! DONT USE IT)",
     CurrentValue = false,
     Flag = "FlyToggle",
     Callback = function(Value)
@@ -161,7 +161,7 @@ end)
 
 
 
-
+-- ! DETECTED !
 
 -- fly (its here to keep the noclip and walkspeed safe🥀
 --[[
