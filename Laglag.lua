@@ -11,41 +11,37 @@ local hrp = char:WaitForChild("HumanoidRootPart")
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({
-    Name = "I lag bro",
-    LoadingTitle = "Welcome to laglaglaglag",
+    Name = "laglag",
+    LoadingTitle = "i lag bro",
     ConfigurationSaving = { Enabled = false }
 })
 
 local MainTab = Window:CreateTab("Lag Controls", 4483362458)
 
 local LAG_MODE = false
-local ZERO_G = false
 
 MainTab:CreateToggle({
-    Name = "Egor Lag Mode",
+    Name = "egor lag",
     CurrentValue = false,
     Callback = function(Value)
         LAG_MODE = Value
         if not Value then
             humanoid.WalkSpeed = 16
-            humanoid.JumpPower = 50
+            hrp.Velocity = Vector3.zero
+        else
+            humanoid.WalkSpeed = 50
         end
-    end
-})
-
-MainTab:CreateToggle({
-    Name = "Zero Gravity",
-    CurrentValue = false,
-    Callback = function(Value)
-        ZERO_G = Value
-        Workspace.Gravity = Value and 0 or 196.2
     end
 })
 
 RunService.RenderStepped:Connect(function()
     if LAG_MODE then
-        humanoid.WalkSpeed = 50
-        humanoid.MoveDirection = humanoid.MoveDirection.Unit * 0.02
+        if humanoid.MoveDirection.Magnitude > 0 then
+            hrp.Velocity = humanoid.MoveDirection.Unit * 2
+        else
+            hrp.Velocity = Vector3.zero
+        end
+    else
         hrp.Velocity = Vector3.zero
     end
 end)
