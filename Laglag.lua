@@ -9,66 +9,52 @@ local char = player.Character or player.CharacterAdded:Wait()
 local humanoid = char:WaitForChild("Humanoid")
 local hrp = char:WaitForChild("HumanoidRootPart")
 
--- Flags
-local LAGGING = false
-local ZERO_GRAVITY = false
-local frozen = false
-
--- UI Setup
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({
-    Name = "Roblox_Egor v2",
-    LoadingTitle = "laglaglaglag",
-    ConfigurationSaving = {
-        Enabled = false
-    }
+    Name = "I lag bro",
+    LoadingTitle = "Welcome to laglaglaglag",
+    ConfigurationSaving = { Enabled = false }
 })
-local MainTab = Window:CreateTab("Lag Settings", 4483362458)
+
+local MainTab = Window:CreateTab("Lag Controls", 4483362458)
+
+local LAG_MODE = false
+local ZERO_G = false
 
 MainTab:CreateToggle({
-    Name = "Enable Egor Lag",
+    Name = "Egor Lag Mode",
     CurrentValue = false,
-    Callback = function(state)
-        LAGGING = state
-    end
-})
-
-MainTab:CreateToggle({
-    Name = "Enable Zero Gravity",
-    CurrentValue = false,
-    Callback = function(state)
-        ZERO_GRAVITY = state
-        Workspace.Gravity = state and 0 or 196.2
-    end
-})
-
--- Lag + Gravity Logic
-RunService.RenderStepped:Connect(function()
-    if LAGGING then
-        humanoid.WalkSpeed = 1
-        humanoid.JumpPower = 0
-
-        -- Donma efekti
-        if not frozen and math.random(1, 50) == 1 then
-            frozen = true
-            local old = hrp.Anchored
-            hrp.Anchored = true
-            wait(0.7)
-            hrp.Anchored = old
-            frozen = false
+    Callback = function(Value)
+        LAG_MODE = Value
+        if not Value then
+            humanoid.WalkSpeed = 16
+            humanoid.JumpPower = 50
         end
-    else
-        humanoid.WalkSpeed = 16
-        humanoid.JumpPower = 50
+    end
+})
+
+MainTab:CreateToggle({
+    Name = "Zero Gravity",
+    CurrentValue = false,
+    Callback = function(Value)
+        ZERO_G = Value
+        Workspace.Gravity = Value and 0 or 196.2
+    end
+})
+
+RunService.RenderStepped:Connect(function()
+    if LAG_MODE then
+        humanoid.WalkSpeed = 50
+        humanoid.MoveDirection = humanoid.MoveDirection.Unit * 0.02
+        hrp.Velocity = Vector3.zero
     end
 end)
 
--- Lag teleportu
 task.spawn(function()
     while true do
         task.wait(4)
-        if LAGGING and not frozen and hrp then
-            local offset = Vector3.new(math.random(-10, 10), math.random(-3, 3), math.random(10, 20))
+        if LAG_MODE and hrp then
+            local offset = Vector3.new(math.random(-6, 6), 0, math.random(6, 14))
             hrp.CFrame = hrp.CFrame + offset
         end
     end
